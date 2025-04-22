@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    def pass1_macroprocessor(lines):
+    mnt = []  # Macro Name Table: {name, mdt_index}
+    mdt = []  # Macro Definition Table
+    ala = {}  # Argument List Array
+    intermediate_code = []
+
+    inside_macro = False
+    mdt_index = 0
+
+    for i in range(len(lines)):
+        line = lines[i].strip()
+
+        if line == "MACRO":
+            inside_macro = True
+            macro_header = lines[i + 1].strip()
+            macro_parts = macro_header.split()
+            macro_name = macro_parts[0]
+            arguments = macro_parts[1].split(',') if len(macro_parts) > 1 else []
+
+            # Build ALA with position mapping
+            ala = {arg.strip(): f"#${idx}" for idx, arg in enumerate(arguments)}
+            mnt.append({"name": macro_name, "mdt_index": len(mdt)})
+
+            # Replace arguments with positional values in MDT
+            mdt.append(macro_header.split()[0] + " " +
+                       ",".join([ala[arg.strip()] for arg in arguments]))
+
+            continue
+
+        if line == "MEND":
+            inside_macro = False
+            mdt.append("MEND")
+            continue
+
+        if inside_macro:
+            for key in ala:
+                line = line.replace(key, ala[key])
+            mdt.append(line)
+        else:
+            intermediate_code.append(line)
+
+    return mnt, mdt, ala, intermediate_code
+
+
+# Sample program
+sample_program = [
+    "MACRO",
+    "INCR &A,&B",
+    "ADD &A,&B",
+    "MEND",
+    "START",
+    "MOV A, 5",
+    "MOV B, 10",
+    "INCR A, B",
+    "END"
+]
+
+mnt, mdt, ala, intermediate = pass1_macroprocessor(sample_program)
+
+print("🔹 Macro Name Table (MNT):")
+for entry in mnt:
+    print(entry)
+
+print("\n🔹 Macro Definition Table (MDT):")
+for i, line in enumerate(mdt):
+    print(f"{i} : {line}")
+
+print("\n🔹 Argument List Array (ALA):")
+for arg, pos in ala.items():
+    print(f"{arg} -> {pos}")
+
+print("\n🔹 Intermediate Code:")
+for line in intermediate:
+    print(line)
+
+    
+</body>
+</html>
