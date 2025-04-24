@@ -6,80 +6,864 @@
     <title>Document</title>
 </head>
 <body>
-    def pass1_macroprocessor(lines):
-    mnt = []  # Macro Name Table: {name, mdt_index}
-    mdt = []  # Macro Definition Table
-    ala = {}  # Argument List Array
-    intermediate_code = []
+    import java.util.*;
 
-    inside_macro = False
-    mdt_index = 0
+public class SimpleLeftRecursionRemover {
+    public static void main(String[] args) {
+        // Define the grammar rules
+        Map<String, List<String>> grammar = new LinkedHashMap<>();
+        grammar.put("E", Arrays.asList("E+T", "T"));
+        grammar.put("T", Arrays.asList("T*F", "F"));
+        grammar.put("F", Arrays.asList("(E)", "id"));
 
-    for i in range(len(lines)):
-        line = lines[i].strip()
+        // Map to store the updated grammar without left recursion
+        Map<String, List<String>> updatedGrammar = new LinkedHashMap<>();
 
-        if line == "MACRO":
-            inside_macro = True
-            macro_header = lines[i + 1].strip()
-            macro_parts = macro_header.split()
-            macro_name = macro_parts[0]
-            arguments = macro_parts[1].split(',') if len(macro_parts) > 1 else []
+        // Process each non-terminal
+        for (Map.Entry<String, List<String>> entry : grammar.entrySet()) {
+            String nonTerminal = entry.getKey();
+            List<String> productions = entry.getValue();
 
-            # Build ALA with position mapping
-            ala = {arg.strip(): f"#${idx}" for idx, arg in enumerate(arguments)}
-            mnt.append({"name": macro_name, "mdt_index": len(mdt)})
+            List<String> alpha = new ArrayList<>(); // Left-recursive parts
+            List<String> beta = new ArrayList<>();  // Non-left-recursive parts
 
-            # Replace arguments with positional values in MDT
-            mdt.append(macro_header.split()[0] + " " +
-                       ",".join([ala[arg.strip()] for arg in arguments]))
+            // Separate productions into alpha and beta
+            for (String production : productions) {
+                if (production.startsWith(nonTerminal)) {
+                    alpha.add(production.substring(nonTerminal.length()));
+                } else {
+                    beta.add(production);
+                }
+            }
 
-            continue
+            // If left recursion is present
+            if (!alpha.isEmpty()) {
+                String newNonTerminal = nonTerminal + "'";
 
-        if line == "MEND":
-            inside_macro = False
-            mdt.append("MEND")
-            continue
+                // Update the original non-terminal's productions
+                List<String> newProductions = new ArrayList<>();
+                for (String b : beta) {
+                    newProductions.add(b + newNonTerminal);
+                }
+                updatedGrammar.put(nonTerminal, newProductions);
 
-        if inside_macro:
-            for key in ala:
-                line = line.replace(key, ala[key])
-            mdt.append(line)
-        else:
-            intermediate_code.append(line)
+                // Create new productions for the new non-terminal
+                List<String> newNonTerminalProductions = new ArrayList<>();
+                for (String a : alpha) {
+                    newNonTerminalProductions.add(a + newNonTerminal);
+                }
+                newNonTerminalProductions.add("ε"); // Epsilon production
+                updatedGrammar.put(newNonTerminal, newNonTerminalProductions);
+            } else {
+                // No left recursion; retain the original productions
+                updatedGrammar.put(nonTerminal, productions);
+            }
+        }
 
-    return mnt, mdt, ala, intermediate_code
+        // Display the updated grammar
+        System.out.println("Grammar after removing left recursion:");
+        for (Map.Entry<String, List<String>> entry : updatedGrammar.entrySet()) {
+            String nonTerminal = entry.getKey();
+            List<String> productions = entry.getValue();
+            System.out.println(nonTerminal + " -> " + String.join(" | ", productions));
+        }
+    }
+}
 
 
-# Sample program
-sample_program = [
-    "MACRO",
-    "INCR &A,&B",
-    "ADD &A,&B",
-    "MEND",
-    "START",
-    "MOV A, 5",
-    "MOV B, 10",
-    "INCR A, B",
-    "END"
-]
 
-mnt, mdt, ala, intermediate = pass1_macroprocessor(sample_program)
 
-print("🔹 Macro Name Table (MNT):")
-for entry in mnt:
-    print(entry)
 
-print("\n🔹 Macro Definition Table (MDT):")
-for i, line in enumerate(mdt):
-    print(f"{i} : {line}")
+import java.util.*;
 
-print("\n🔹 Argument List Array (ALA):")
-for arg, pos in ala.items():
-    print(f"{arg} -> {pos}")
+public class FirstSet {
 
-print("\n🔹 Intermediate Code:")
-for line in intermediate:
-    print(line)
+    static Map<String, List<String>> grammar = new HashMap<>();
+    static Map<String, Set<String>> first = new HashMap<>();
+
+    public static void main(String[] args) {
+        // Define the grammar
+        grammar.put("E", Arrays.asList("T E'"));
+        grammar.put("E'", Arrays.asList("+ T E'", "ε"));
+        grammar.put("T", Arrays.asList("F T'"));
+        grammar.put("T'", Arrays.asList("* F T'", "ε"));
+        grammar.put("F", Arrays.asList("( E )", "id"));
+
+        for (String nonTerminal : grammar.keySet()) {
+            computeFirst(nonTerminal);
+        }
+
+        System.out.println("FIRST sets:");
+        for (String nonTerminal : first.keySet()) {
+            System.out.println("FIRST(" + nonTerminal + ") = " + first.get(nonTerminal));
+        }
+    }
+
+    static Set<String> computeFirst(String symbol) {
+        if (first.containsKey(symbol)) {
+            return first.get(symbol); // Avoid recomputation
+        }
+
+        Set<String> result = new HashSet<>();
+
+        // If terminal or epsilon
+        if (!grammar.containsKey(symbol)) {
+            result.add(symbol); // Terminal or ε
+            return result;
+        }
+
+        for (String production : grammar.get(symbol)) {
+            String[] symbols = production.split(" ");
+
+            for (int i = 0; i < symbols.length; i++) {
+                Set<String> tempFirst = computeFirst(symbols[i]);
+
+                result.addAll(tempFirst); // Add everything except ε
+                result.remove("ε");
+
+                if (!tempFirst.contains("ε")) {
+                    break; // Stop if ε is not present
+                }
+
+                // If all symbols produce ε
+                if (i == symbols.length - 1) {
+                    result.add("ε");
+                }
+            }
+        }
+
+        first.put(symbol, result); // Memoize result
+        return result;
+    }
+}
+
+
+
+
+import java.io.*;
+import java.util.*;
+
+public class MacroProcessorPass1 {
+
+    static int mdtPointer = 0;
+
+    static List<String> MNT = new ArrayList<>(); // Macro Name Table
+    static List<String> MDT = new ArrayList<>(); // Macro Definition Table
+    static Map<String, Integer> MNT_Pointer = new HashMap<>(); // MNT -> MDT Index
+    static Map<String, Integer> ALA = new HashMap<>(); // Argument List Array
+
+    public static void main(String[] args) throws Exception {
+        BufferedReader br = new BufferedReader(new FileReader("macro_input.asm"));
+        String line;
+
+        boolean insideMacro = false;
+        String macroName = "";
+
+        while ((line = br.readLine()) != null) {
+            line = line.trim();
+
+            if (line.equalsIgnoreCase("MACRO")) {
+                insideMacro = true;
+                ALA.clear(); // Reset ALA for each macro
+                continue;
+            }
+
+            if (insideMacro) {
+                if (macroName.isEmpty()) {
+                    // First line after MACRO — contains macro name and parameters
+                    String[] parts = line.split("\\s+");
+                    macroName = parts[0];
+                    MNT.add(macroName);
+                    MNT_Pointer.put(macroName, mdtPointer);
+
+                    if (parts.length > 1) {
+                        String[] argsList = parts[1].split(",");
+                        for (int i = 0; i < argsList.length; i++) {
+                            ALA.put(argsList[i], i);
+                        }
+                    }
+                } else {
+                    if (line.equalsIgnoreCase("MEND")) {
+                        MDT.add("MEND");
+                        mdtPointer++;
+                        insideMacro = false;
+                        macroName = "";
+                        continue;
+                    }
+
+                    // Replace arguments with positional notation (#0, #1...)
+                    for (String arg : ALA.keySet()) {
+                        if (line.contains(arg)) {
+                            line = line.replace(arg, "#" + ALA.get(arg));
+                        }
+                    }
+
+                    MDT.add(line);
+                    mdtPointer++;
+                }
+            }
+        }
+
+        br.close();
+
+        printTables();
+    }
+
+    static void printTables() {
+        System.out.println("=== Macro Name Table (MNT) ===");
+        for (String name : MNT) {
+            System.out.println(name + " -> MDT Index: " + MNT_Pointer.get(name));
+        }
+
+        System.out.println("\n=== Macro Definition Table (MDT) ===");
+        for (int i = 0; i < MDT.size(); i++) {
+            System.out.println(i + ":\t" + MDT.get(i));
+        }
+
+        System.out.println("\n=== Argument List Array (ALA) ===");
+        for (Map.Entry<String, Integer> entry : ALA.entrySet()) {
+            System.out.println(entry.getKey() + " -> #" + entry.getValue());
+        }
+    }
+}
+
+
+
+
+import java.util.*;
+import java.util.regex.*;
+import java.io.*;
+
+public class LexAnalyzer {
+    public static void main(String[] args) {
+        // Define sets for different token types
+        Set<String> keywords = new HashSet<>(Arrays.asList("int", "main", "void", "float", "static", "double", "return", "if", "else", "printf"));
+        Set<String> operators = new HashSet<>(Arrays.asList("+", "-", "*", "%", "^", "=", "<", ">", "<=", ">=", "==", "+=", "-=", "!="));
+        Set<String> separators = new HashSet<>(Arrays.asList(";", ",", "{", "}", "(", ")", "[", "]", "."));
+
+        // Tokenization pattern
+        String tokenizer = "[a-zA-Z_][a-zA-Z0-9_]*|\\d+|==|!=|<=|>=|[+\\-*/=<>;{},()\\[\\]]";
+        Pattern tokenizerPattern = Pattern.compile(tokenizer);
+
+        try {
+            File file = new File("java.txt"); // Your file path
+            BufferedReader reader = new BufferedReader(new FileReader(file));
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                Matcher tokenMatcher = tokenizerPattern.matcher(line);
+
+                while (tokenMatcher.find()) {
+                    String token = tokenMatcher.group(0);
+
+                    if (keywords.contains(token)) {
+                        System.out.println("Token \"" + token + "\" is a Keyword");
+                    } else if (operators.contains(token)) {
+                        System.out.println("Token \"" + token + "\" is an Operator");
+                    } else if (separators.contains(token)) {
+                        System.out.println("Token \"" + token + "\" is a Separator");
+                    } else if (token.matches("\\d+")) {
+                        System.out.println("Token \"" + token + "\" is a Number");
+                    } else if (token.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
+                        System.out.println("Token \"" + token + "\" is an Identifier");
+                    } else {
+                        System.out.println("Token \"" + token + "\" is Invalid");
+                    }
+                }
+            }
+
+            reader.close();
+        } catch (IOException e) {
+            System.out.println("Error reading file: " + e.getMessage());
+        }
+    }
+}
+
+
+
+import java.util.*;
+
+public class CodeOpt {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        List<String> input = new ArrayList<>();
+
+        System.out.println("Enter 3-address code statements (type 'done' to finish):");
+        while (true) {
+            String line = sc.nextLine().trim();
+            if (line.equalsIgnoreCase("done")) break;
+            input.add(line);
+        }
+
+        Map<String, String> exprMap = new LinkedHashMap<>(); // to keep order
+        Map<String, String> replaceMap = new HashMap<>();
+        int tempCount = 1;
+        
+        for (String stmt : input) {
+            String[] parts = stmt.split("=");
+            String lhs = parts[0].trim();
+            String rhs = parts[1].trim();
+
+            // Replace known duplicates
+            for (Map.Entry<String, String> entry : replaceMap.entrySet()) {
+                rhs = rhs.replace(entry.getKey(), entry.getValue());
+            }
+
+            boolean found = false;
+            for (Map.Entry<String, String> entry : exprMap.entrySet()) {
+                if (entry.getValue().equals(rhs)) {
+                    replaceMap.put(lhs, entry.getKey());
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                exprMap.put("t" + tempCount, rhs);
+                replaceMap.put(lhs, "t" + tempCount);
+                tempCount++;
+            }
+        }
+
+        // Print optimized code
+        System.out.println("\nOptimized Code:");
+        for (Map.Entry<String, String> entry : exprMap.entrySet()) {
+            String tempVar = entry.getKey();
+            String rhs = entry.getValue();
+
+            // Apply final replacements
+            for (Map.Entry<String, String> r : replaceMap.entrySet()) {
+                rhs = rhs.replace(r.getKey(), r.getValue());
+            }
+
+            System.out.println(tempVar + " = " + rhs);
+        }
+    }
+}
+
+
+
+
+
+
+import java.util.Scanner;
+import java.util.Stack;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class TAC{
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String inputEquation = sc.nextLine();
+
+        String inputRegex = "[^\\s]+";
+        Pattern inputPattern = Pattern.compile(inputRegex);
+        Matcher inputMatcher = inputPattern.matcher(inputEquation);
+
+        Stack<String> inputStack = new Stack<>();
+        Stack<String> threeAddressStack = new Stack<>();
+
+        while(inputMatcher.find()){
+           inputStack.push(inputMatcher.group(0));
+        }
+
+        StringBuffer tempEquation = new StringBuffer("");
+        int iterationCount = 1;
+
+        while (!inputStack.isEmpty()) {
+            String current = inputStack.pop();
+        
+            // Check if current is an operand (variable or number)
+            if (current.matches("[\\w\\d]+")) {
+                tempEquation.append(current); // Just add it to the current equation
+            }
+        
+            // If current is an operator
+            else if (current.matches("[^\\w\\d]+")) {
+                if (!inputStack.isEmpty()) {
+                    String nextOperand = inputStack.pop(); // Get the next operand
+        
+                    // Build expression: temp = operand operator operand
+                    String expression = "t" + iterationCount + " = " + nextOperand + " " + current + " " + tempEquation;
+        
+                    // Push temp variable (t1, t2...) back to stack for reuse
+                    inputStack.push("t" + iterationCount);
+        
+                    // Save this line in output stack
+                    threeAddressStack.push(expression);
+        
+                    // Reset for next expression
+                    tempEquation = new StringBuffer();
+                    iterationCount++;
+                }
+            }
+        
+            // Final assignment case: if only two items left ("a = t2")
+            if (inputStack.size() == 2) {
+                String left = inputStack.pop();   // should be '='
+                String variable = inputStack.pop(); // should be variable like 'a'
+        
+                String finalAssign = variable + " " + left + " " + tempEquation;
+                threeAddressStack.push(finalAssign);
+            }
+        }
+        
+
+        System.out.println(threeAddressStack);
+
+    }
+}
+
+
+
+
+
+import java.util.*;
+
+public class FollowSet {
+    static Map<String, List<String>> grammar = new HashMap<>();
+    static Map<String, Set<String>> follow = new HashMap<>();
+    static Map<String, Set<String>> first = new HashMap<>();
+    static String startSymbol;
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        System.out.println("Enter number of productions:");
+        int n = Integer.parseInt(sc.nextLine());
+
+        System.out.println("Enter productions (e.g. E->T+E or T->id):");
+        for (int i = 0; i < n; i++) {
+            String[] parts = sc.nextLine().split("->");
+            String lhs = parts[0].trim();
+            String rhs = parts[1].trim();
+
+            grammar.computeIfAbsent(lhs, k -> new ArrayList<>()).add(rhs);
+            follow.putIfAbsent(lhs, new HashSet<>());
+            first.putIfAbsent(lhs, new HashSet<>());
+
+            if (i == 0) startSymbol = lhs; // First non-terminal is start symbol
+        }
+
+        // Hardcoded or assumed FIRST sets
+        // For real case, FIRST should be computed
+        // Example for basic grammar:
+        first.put("E", new HashSet<>(Arrays.asList("(", "id")));
+        first.put("T", new HashSet<>(Arrays.asList("(", "id")));
+        first.put("F", new HashSet<>(Arrays.asList("(", "id")));
+
+        computeFollow();
+
+        // Output FOLLOW sets
+        System.out.println("\nFOLLOW sets:");
+        for (String nt : follow.keySet()) {
+            System.out.println("FOLLOW(" + nt + ") = " + follow.get(nt));
+        }
+    }
+
+    static void computeFollow() {
+        follow.get(startSymbol).add("$"); // Add $ to start symbol
+
+        boolean changed;
+
+        do {
+            changed = false;
+            for (Map.Entry<String, List<String>> entry : grammar.entrySet()) {
+                String lhs = entry.getKey();
+                for (String rhs : entry.getValue()) {
+                    String[] symbols = rhs.split("");
+
+                    for (int i = 0; i < symbols.length; i++) {
+                        String B = symbols[i];
+
+                        if (!grammar.containsKey(B)) continue; // Skip terminals
+
+                        Set<String> followB = follow.get(B);
+                        int beforeSize = followB.size();
+
+                        if (i + 1 < symbols.length) {
+                            String next = symbols[i + 1];
+                            if (!grammar.containsKey(next)) {
+                                followB.add(next); // Terminal after B
+                            } else {
+                                followB.addAll(first.get(next)); // Add FIRST of next
+                            }
+                        } else {
+                            followB.addAll(follow.get(lhs)); // Add FOLLOW of LHS
+                        }
+
+                        if (followB.size() > beforeSize) changed = true;
+                    }
+                }
+            }
+        } while (changed);
+    }
+}
+
+
+
+
+import java.util.*;
+
+public class LL1Parser {
+    static Map<String, Map<String, String>> parseTable = new HashMap<>();
+    static Stack<String> stack = new Stack<>();
+
+    static String[] terminals = {"+", "*", "(", ")", "id", "$"};
+    static String[] nonTerminals = {"E", "E'", "T", "T'", "F"};
+
+    public static void main(String[] args) {
+        buildParseTable();
+
+        Scanner sc = new Scanner(System.in);
+        System.out.println("Enter input (e.g. id+id*id): ");
+        String input = sc.nextLine().replaceAll("id", "id") + "$";
+
+        stack.push("$");
+        stack.push("E");
+
+        int index = 0;
+        while (!stack.isEmpty()) {
+            String top = stack.peek();
+            String current;
+
+            if (input.startsWith("id", index)) {
+                current = "id";
+            } else {
+                current = Character.toString(input.charAt(index));
+            }
+
+            if (top.equals(current)) {
+                stack.pop();
+                index += current.equals("id") ? 2 : 1;
+            } else if (isTerminal(top)) {
+                System.out.println("Rejected: Expected " + top + ", found " + current);
+                return;
+            } else {
+                String rule = parseTable.get(top).get(current);
+                if (rule == null) {
+                    System.out.println("Rejected: No rule for (" + top + ", " + current + ")");
+                    return;
+                }
+
+                stack.pop();
+                if (!rule.equals("ε")) {
+                    String[] symbols = rule.split(" ");
+                    for (int i = symbols.length - 1; i >= 0; i--) {
+                        stack.push(symbols[i]);
+                    }
+                }
+            }
+        }
+
+        System.out.println("Accepted!");
+    }
+
+    static boolean isTerminal(String symbol) {
+        return Arrays.asList(terminals).contains(symbol);
+    }
+
+    static void buildParseTable() {
+        for (String nt : nonTerminals) {
+            parseTable.put(nt, new HashMap<>());
+        }
+
+        parseTable.get("E").put("(", "T E'");
+        parseTable.get("E").put("id", "T E'");
+
+        parseTable.get("E'").put("+", "+ T E'");
+        parseTable.get("E'").put(")", "ε");
+        parseTable.get("E'").put("$", "ε");
+
+        parseTable.get("T").put("(", "F T'");
+        parseTable.get("T").put("id", "F T'");
+
+        parseTable.get("T'").put("*", "* F T'");
+        parseTable.get("T'").put("+", "ε");
+        parseTable.get("T'").put(")", "ε");
+        parseTable.get("T'").put("$", "ε");
+
+        parseTable.get("F").put("(", "( E )");
+        parseTable.get("F").put("id", "id");
+    }
+}
+
+
+
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+
+class LL1ParserAlgorithm {
+    private static final HashMap<String, ArrayList<String>> first = new HashMap<>();
+    private static final HashMap<String, ArrayList<String>> follow = new HashMap<>();
+    private static final Map<String, Map<String, String>> parsingTable = new HashMap<>();
+    private static final List<String> nonTerminals = Arrays.asList("A","B","C");
+    private static final HashMap<String, ArrayList<String>> grammar = new HashMap<>();
+    private static final String EPSILON = "ε";
+    static int _recursionCountFirst = 0;
+    static int _recursionCountFollow = 0;
+
+    static {
+        // Define the grammar
+        grammar.put("A", new ArrayList<>(Arrays.asList("BC")));
+        grammar.put("B", new ArrayList<>(Arrays.asList("Ax", "x")));
+        grammar.put("C", new ArrayList<>(Arrays.asList("yC", "y")));
+
+        computeFirst();
+        computeFollow();
+        createParsingTable();
+    }
+
+    static ArrayList<String> findFirst(String nonTerminal) {
+
+        Boolean flag = false;
+        _recursionCountFirst++;
+        if (_recursionCountFirst > 20) {
+            _recursionCountFirst = 0;
+            return new ArrayList<>();
+        }
+
+        if (first.containsKey(nonTerminal)) {
+
+            return first.get(nonTerminal);
+        }
+        HashSet<String> firstSet = new HashSet<>();
+        for (String rule : grammar.get(nonTerminal)) {
+            for (int i = 0; i < rule.length(); i++) {
+                if (Character.isUpperCase(rule.charAt(i)) && first.containsKey(rule.charAt(i) + "")) {
+
+                    if (!first.get(rule.charAt(i) + "").contains(EPSILON)) {
+                        firstSet.addAll(first.get(rule.charAt(i) + ""));
+                        break;
+                    } else {
+                        firstSet.addAll(first.get(rule.charAt(i) + ""));
+                        flag = true;
+
+                    }
+
+                } else if (Character.isUpperCase(rule.charAt(i)) && !first.containsKey(rule.charAt(i) + "")) {
+                    first.put(rule.charAt(i) + "", findFirst(rule.charAt(i) + ""));
+                    if (!first.get(rule.charAt(i) + "").contains(EPSILON)) {
+                        firstSet.addAll(first.get(rule.charAt(i) + ""));
+                        break;
+                    } else {
+                        firstSet.addAll(first.get(rule.charAt(i) + ""));
+                        flag = true;
+                    }
+
+                } else {
+                    firstSet.add(rule.charAt(i) + "");
+                    break;
+                }
+            }
+        }
+        if (flag)
+            firstSet.add(EPSILON);
+        return new ArrayList<>(firstSet);
+    }
+
+    static ArrayList<String> findFollow(String nonTerminal) {
+        _recursionCountFollow++;
+        if (_recursionCountFollow > 20) {
+            _recursionCountFollow = 0;
+            return new ArrayList<>();
+        }
+
+        HashSet<String> followSet = new HashSet<>();
+
+        Boolean flag = false;
+        if (nonTerminal.equals("A"))
+            followSet.add("$");
+
+        for (String lhs : grammar.keySet()) {
+            for (String rule : grammar.get(lhs)) {
+                if (rule.contains(nonTerminal)) {
+                    int index = rule.indexOf(nonTerminal);
+                    if (index < rule.length() - 1) {
+                        for (int i = index + 1; i < rule.length(); i++) {
+
+                            if (Character.isLowerCase(rule.charAt(i))) {
+                                followSet.add(rule.charAt(i) + "");
+                                flag = true;
+                                break;
+                            } else {
+                                ArrayList<String> firstSetOfFollowing = findFirst(rule.charAt(i) + "");
+                                followSet.addAll(firstSetOfFollowing.stream().filter(s -> !s.equals(EPSILON))
+                                        .collect(Collectors.toList()));
+                                if (!firstSetOfFollowing.contains(EPSILON)) {
+                                    flag = true;
+                                    break;
+                                }
+                            }
+
+                        }
+                        if (!flag) {
+                            followSet.addAll(findFollow(lhs));
+                        }
+
+                    } else {
+                        followSet.addAll(findFollow(lhs));
+                    }
+
+                }
+            }
+
+        }
+
+        return new ArrayList<>(followSet);
+    }
+
+    private static void computeFirst() {
+        for (String nonTerminal : nonTerminals) {
+            first.put(nonTerminal,  findFirst(nonTerminal));
+        }
+        
+        // boolean changed;
+        // do {
+        //     changed = false;
+        //     for (String nonTerminal : grammar.keySet()) {
+        //         for (String production : grammar.get(nonTerminal)) {
+        //             String[] symbols = production.split(" ");
+        //             for (String symbol : symbols) {
+        //                 if (!nonTerminals.contains(symbol)) {
+        //                     changed |= first.get(nonTerminal).add(symbol);
+        //                     break;
+        //                 } else {
+        //                     changed |= first.get(nonTerminal).addAll(first.get(symbol));
+        //                     if (!first.get(symbol).contains(EPSILON)) break;
+        //                 }
+        //             }
+        //         }
+        //     }
+        // } while (changed);
+         System.out.println(first);
+    }
+
+    private static void computeFollow() {
+        for (String nonTerminal : nonTerminals) {
+            follow.put(nonTerminal,   findFollow(nonTerminal));
+        } // Start symbol
+
+        // boolean changed;
+        // do {
+        //     changed = false;
+        //     for (String nonTerminal : grammar.keySet()) {
+        //         for (String production : grammar.get(nonTerminal)) {
+        //             String[] symbols = production.split(" ");
+        //             for (int i = 0; i < symbols.length; i++) {
+        //                 if (nonTerminals.contains(symbols[i])) {
+        //                     Set<String> followSet = follow.get(symbols[i]);
+        //                     int oldSize = followSet.size();
+        //                     if (i + 1 < symbols.length) {
+        //                         String next = symbols[i + 1];
+        //                         if (!nonTerminals.contains(next)) {
+        //                             followSet.add(next);
+        //                         } else {
+        //                             followSet.addAll(first.get(next));
+        //                             if (first.get(next).contains(EPSILON)) {
+        //                                 followSet.addAll(follow.get(nonTerminal));
+        //                             }
+        //                         }
+        //                     } else {
+        //                         followSet.addAll(follow.get(nonTerminal));
+        //                     }
+        //                     if (followSet.size() > oldSize) changed = true;
+        //                 }
+        //             }
+        //         }
+        //     }
+        // } while (changed);
+        System.out.println(follow);
+    }
+
+    private static void createParsingTable() {
+        for (String nonTerminal : nonTerminals) {
+            parsingTable.put(nonTerminal, new HashMap<>());
+        }
+        for (String nonTerminal : grammar.keySet()) {
+            for (String production : grammar.get(nonTerminal)) {
+                String[] symbols = production.split("");
+
+                Set<String> firstSet = new HashSet<>();
+                for (String symbol : symbols) {
+
+                    if (!nonTerminals.contains(symbol)) {
+                        firstSet.add(symbol);
+                        break;
+                    } else {
+                        firstSet.addAll(first.get(symbol));
+                        if (!first.get(symbol).contains(EPSILON)) break;
+                    }
+                }
+                for (String terminal : firstSet) {
+                    if (!terminal.equals(EPSILON)) {
+                        parsingTable.get(nonTerminal).put(terminal, production);
+                    }
+                }
+                if (firstSet.contains(EPSILON)) {
+                    for (String terminal : follow.get(nonTerminal)) {
+                        parsingTable.get(nonTerminal).put(terminal, EPSILON);
+                    }
+                }
+            }
+        }
+        System.out.println(parsingTable);
+    }
+
+    public static boolean parse(String[] tokens) {
+        Stack<String> stack = new Stack<>();
+        stack.push("$");
+        stack.push("A");
+        int index = 0;
+        System.out.println(Arrays.toString(tokens));
+        while (!stack.isEmpty()) {
+            System.out.println("stack: "+ stack);
+            String top = stack.pop();
+            String token = index < tokens.length ? tokens[index] : "$";
+            if (top.equals(token)) {
+                index++;
+            } else if (parsingTable.containsKey(top)) {
+                if (parsingTable.get(top).containsKey(token)) {
+                    String production = parsingTable.get(top).get(token);
+                    if (!production.equals(EPSILON)) {
+                        String[] symbols = production.split("");
+                        for (int i = symbols.length - 1; i >= 0; i--) {
+                            stack.push(symbols[i]);
+                        }
+                    }
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+
+        return index == tokens.length + 1;
+    }
+
+    public static void main(String[] args) {
+
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.print("Enter an expression (e.g., id + id * id): ");
+        String input = scanner.nextLine();
+        scanner.close();
+        
+        String[] tokens = input.replace("(", " ( ")
+                               .replace(")", " ) ")
+                               .replace("+", " + ")
+                               .replace("*", " * ")
+                               .trim().split("\\s+");
+
+
+        
+        boolean result = parse(tokens);
+        System.out.println("Parsing result: " + (result ? "Accepted" : "Rejected"));
+    }
+}
 
     
 </body>
